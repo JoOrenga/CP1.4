@@ -1,0 +1,80 @@
+pipeline {
+    agent any
+        environment {
+            AWS_REGION = 'us-east-1'
+            SAM_TEMPLATE = 'template.yaml'
+            SAM_CONFIG = 'samconfig.toml'
+        }
+    stages {
+        stage('Get Code') {
+            steps {
+                git branch: 'develop', url: 'https://github.com/JoOrenga/CP1.4.git'
+            }
+        }
+
+        stage('Static & Security') {
+            parallel {
+                stage('Static') {
+                    steps {
+                        sh 'python3 -m flake8 --exit-zero --format=pylint --exclude=requirements.txt src 1>flake8.out'
+                        recordIssues tools: [flake8(name: 'Flake8', pattern: 'flake8.out')],
+                                qualityGates: []
+                    }
+                }
+                stage('Security') {
+                    steps {
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            sh 'python3 -m bandit -r src --exclude=requirements.txt -f custom -o bandit.out --msg-template "{abspath}:{line}: [{test_id}] {msg}"'
+                            recordIssues tools: [pyLint(name: 'Bandit', pattern: 'bandit.out')],
+                                    qualityGates: []
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh '''
+                    S3_BUCKET=$(grep -A5 "\\[staging.deploy.parameters\\]" ${SAM_CONFIG} | grep "s3_bucket" | cut -d'"' -f2)
+                    aws s3api head-bucket --bucket ${S3_BUCKET} 2>/dev/null || \
+                    aws s3api create-bucket \
+                        --bucket ${S3_BUCKET} \
+                        --region ${AWS_REGION}
+                '''
+                sh 'sam build -t ${SAM_TEMPLATE}'
+                sh 'sam validate --region ${AWS_REGION}'
+                sh 'sam deploy --config-env staging --config-file ${SAM_CONFIG} --no-fail-on-empty-changeset'
+            }
+        }
+        
+        stage('Rest Test') {
+            steps {
+                script {
+                    BASE_URL = sh(
+                        script: """aws cloudformation describe-stacks \
+                            --stack-name todo-list-aws-staging \
+                            --query "Stacks[0].Outputs[?OutputKey=='BaseUrlApi'].OutputValue" \
+                            --region us-east-1 \
+                            --output text""",
+                        returnStdout: true
+                    ).trim()
+                }
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                    sh "BASE_URL=${BASE_URL} pytest --junitxml=result-integration.xml -s test/integration/todoApiTest.py"
+                }
+                junit 'result-integration.xml'
+            }
+        }
+    }
+    
+    post{
+        always{
+            cleanWs(
+                    deleteDirs: true,
+                    disableDeferredWipeout: true,
+                    notFailBuild: true
+                )
+        }
+    }
+}
