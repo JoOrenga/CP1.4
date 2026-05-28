@@ -66,8 +66,22 @@ pipeline {
                 junit 'result-integration.xml'
             }
         }
+
+        stage('Promote'){
+            steps{
+                sh'''
+                git checkout master
+                git pull origin master
+                git merge develop
+                git checkout master -- Jenkinsfile   # Restaura el Jenkinsfile de master
+                git add Jenkinsfile
+                git commit -m "Merge develop into master, keep original Jenkinsfile"
+                git push origin 
+                '''
+            }
+        }
     }
-    
+
     post{
         always{
             cleanWs(
