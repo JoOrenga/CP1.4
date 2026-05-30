@@ -1,0 +1,144 @@
+pipeline {
+    agent none
+
+    environment {
+        AWS_REGION   = 'us-east-1'
+        SAM_TEMPLATE = 'template.yaml'
+        SAM_CONFIG   = 'samconfig.toml'
+    }
+
+    stages {
+        stage('Get Code') {
+            agent { label 'aws3' }
+            steps {
+                git branch: 'develop', url: 'https://github.com/JoOrenga/CP1.4.git'
+                stash name: 'codigo', includes: '**/*'
+            }
+        }
+
+        stage('Static & Security') {
+            parallel {
+                stage('Static') {
+                    agent { label 'aws1' }
+                    steps {
+                        unstash 'codigo'
+                        sh 'python3 -m flake8 --exit-zero --format=pylint --exclude=requirements.txt src 1>flake8.out'
+                        recordIssues tools: [flake8(name: 'Flake8', pattern: 'flake8.out')],
+                                qualityGates: []
+                    }
+                }
+                stage('Security') {
+                    agent { label 'aws1' }
+                    steps {
+                        unstash 'codigo'
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            sh 'python3 -m bandit -r src --exclude=requirements.txt -f custom -o bandit.out --msg-template "{abspath}:{line}: [{test_id}] {msg}"'
+                            recordIssues tools: [pyLint(name: 'Bandit', pattern: 'bandit.out')],
+                                    qualityGates: []
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy') {
+            agent { label 'aws2' }
+            steps {
+                unstash 'codigo'
+                sh '''
+                    S3_BUCKET=$(grep -A5 "\\[staging.deploy.parameters\\]" ${SAM_CONFIG} \
+                    | grep "s3_bucket" \
+                    | cut -d'"' -f2)
+                    aws s3api head-bucket --bucket ${S3_BUCKET} 2>/dev/null || \
+                    aws s3api create-bucket \
+                        --bucket ${S3_BUCKET} \
+                        --region ${AWS_REGION}
+                '''
+                sh 'sam build -t ${SAM_TEMPLATE}'
+                sh 'sam validate --region ${AWS_REGION}'
+                sh 'sam deploy --config-env staging --config-file ${SAM_CONFIG} --no-fail-on-empty-changeset'
+        
+                script {
+                    def STACK_NAME = sh(
+                            script: '''
+                                grep -A5 "\\[staging.deploy.parameters\\]" ${SAM_CONFIG}  \
+                                | grep "stack_name" \
+                                | cut -d'"' -f2
+                            ''',
+                            returnStdout: true
+                    ).trim()
+                    
+                    env.BASE_URL = sh(
+                        script: """
+                            aws cloudformation describe-stacks \\
+                                --stack-name ${STACK_NAME} \\
+                                --query "Stacks[0].Outputs[?OutputKey=='BaseUrlApi'].OutputValue" \\
+                                --region ${AWS_REGION} \\
+                                --output text
+                        """,
+                        returnStdout: true
+                    ).trim()
+        
+                    echo "BASE_URL capturada: ${env.BASE_URL}"
+                }
+            }
+        }
+        
+        stage('Rest Test') {
+            agent { label 'aws3' }
+            steps {
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                    sh """
+                        BASE_URL=${env.BASE_URL} pytest --junitxml=result-integration.xml -s \
+                            test/integration/todoApiTest.py
+                    """
+                }
+                junit 'result-integration.xml'
+            }
+        }
+
+        stage('Promote') {
+            agent { label 'aws3' }
+            steps {
+                 sh script: """
+                    # Cambiar el remote a SSH
+                    git remote set-url origin git@github.com:JoOrenga/CP1.4.git
+                    git checkout master
+                    git pull origin master
+                    git merge -X ours develop
+                """
+                sshagent(['github']){
+                   sh'''
+                    git push origin master
+                '''
+                }
+            }
+        }
+    }
+
+        post {
+        always {
+            node('aws1') {
+                cleanWs(
+                    deleteDirs: true,
+                    disableDeferredWipeout: true,
+                    notFailBuild: true
+                )
+            }
+            node('aws2') {
+                cleanWs(
+                    deleteDirs: true,
+                    disableDeferredWipeout: true,
+                    notFailBuild: true
+                )
+            }
+            node('aws3') {
+                cleanWs(
+                    deleteDirs: true,
+                    disableDeferredWipeout: true,
+                    notFailBuild: true
+                )
+            }
+        }
+    }
+}
