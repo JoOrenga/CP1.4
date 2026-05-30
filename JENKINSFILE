@@ -69,13 +69,14 @@ pipeline {
 
         stage('Promote'){
             steps{
-                sh'''
+
+                sshagent(['github']){
+                   sh'''
                 git checkout master
                 git pull origin master
                 git merge -X ours develop
+                git push origin master
                 '''
-                sshagent(['github']){
-                   sh 'git push origin master' 
                 }
             }
         }
