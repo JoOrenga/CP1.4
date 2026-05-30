@@ -11,6 +11,12 @@ pipeline {
         stage('Get Code') {
             agent { label 'aws3' }
             steps {
+                sh'''
+                    whoami
+                    hostname
+                    echo ${WORKSPACE}
+                    echo "STAGE: ${STAGE_NAME} / AGENTE: ${NODE_NAME}"
+                '''
                 git branch: 'master', url: 'https://github.com/JoOrenga/CP1.4.git'
                 stash name: 'codigo', includes: '**/*'
             }
@@ -21,6 +27,10 @@ pipeline {
             steps {
                 unstash 'codigo'
                 sh '''
+                    whoami
+                    hostname
+                    echo ${WORKSPACE}
+                    echo "STAGE: ${STAGE_NAME} / AGENTE: ${NODE_NAME}"
                     S3_BUCKET=$(grep -A5 "\\[production.deploy.parameters\\]" ${SAM_CONFIG} \
                     | grep "s3_bucket" \
                     | cut -d'"' -f2)
@@ -63,6 +73,12 @@ pipeline {
             agent { label 'aws3' }
             steps {
                 unstash 'codigo'
+                sh'''
+                    whoami
+                    hostname
+                    echo ${WORKSPACE}
+                    echo "STAGE: ${STAGE_NAME} / AGENTE: ${NODE_NAME}"
+                '''
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                     sh """BASE_URL=${BASE_URL} pytest --junitxml=result-integration.xml -s \
                             -k 'test_api_listtodos or test_api_addtodo' \
