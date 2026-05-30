@@ -1,1 +1,63 @@
-
+pipeline {
+    agent {label 'aws1'}
+        environment {
+            AWS_REGION = 'us-east-1'
+            SAM_TEMPLATE = 'template.yaml'
+            SAM_CONFIG = 'samconfig.toml'
+        }
+    stages {
+        stage('Get Code') {
+            steps {
+                git branch: 'master', url: 'https://github.com/JoOrenga/CP1.4.git'
+            }
+        }
+        
+       stage('Deploy') {
+            steps {
+                sh '''
+                    S3_BUCKET=$(grep -A5 "\\[production.deploy.parameters\\]" ${SAM_CONFIG} | grep "s3_bucket" | cut -d'"' -f2)
+                    aws s3api head-bucket --bucket ${S3_BUCKET} 2>/dev/null || \
+                    aws s3api create-bucket \
+                        --bucket ${S3_BUCKET} \
+                        --region ${AWS_REGION}
+                '''
+                sh 'sam build -t ${SAM_TEMPLATE}'
+                sh 'sam validate --region ${AWS_REGION}'
+                sh 'sam deploy --config-env production --config-file ${SAM_CONFIG} --no-fail-on-empty-changeset'
+            }
+        }
+        
+    stage('Rest Test') {
+            steps {
+                script {
+                    STACK_NAME = sh(
+                            script: '''
+                                grep -A5 "\\[production.deploy.parameters\\]" samconfig.toml \
+                                | grep "stack_name" \
+                                | cut -d'"' -f2
+                            ''',
+                            returnStdout: true
+                    ).trim()
+                    
+                    BASE_URL = sh(
+                        script: """
+                            aws cloudformation describe-stacks \
+                            --stack-name "${STACK_NAME}" \
+                            --query "Stacks[0].Outputs[?OutputKey=='BaseUrlApi'].OutputValue" \
+                            --region us-east-1 \
+                            --output text""",
+                        returnStdout: true
+                    ).trim()
+                }
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                    sh """BASE_URL=${BASE_URL} pytest --junitxml=result-integration.xml -s \
+                            -k 'test_api_listtodos or test_api_addtodo' \
+                            test/integration/todoApiTest.py"""
+                    
+                }
+                junit 'result-integration.xml'
+            }
+        }
+        
+    }
+}
