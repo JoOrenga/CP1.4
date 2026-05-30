@@ -70,14 +70,15 @@ pipeline {
         stage('Promote'){
             steps{
 
-                sshagent(['github']){
-                   sh'''
-                   # Cambiar el remote a SSH
+                sh script: """
+                    # Cambiar el remote a SSH
                     git remote set-url origin git@github.com:JoOrenga/CP1.4.git
-                    
                     git checkout master
                     git pull origin master
                     git merge -X ours develop
+                """
+                sshagent(['github']){
+                   sh'''
                     git push origin master
                 '''
                 }
