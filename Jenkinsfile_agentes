@@ -21,7 +21,7 @@ pipeline {
             steps {
                 unstash 'codigo'
                 sh '''
-                    S3_BUCKET=$(grep -A5 "\\[production .deploy.parameters\\]" ${SAM_CONFIG} \
+                    S3_BUCKET=$(grep -A5 "\\[production.deploy.parameters\\]" ${SAM_CONFIG} \
                     | grep "s3_bucket" \
                     | cut -d'"' -f2)
                     aws s3api head-bucket --bucket ${S3_BUCKET} 2>/dev/null || \
