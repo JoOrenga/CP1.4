@@ -64,7 +64,7 @@ pipeline {
                     ).trim()
 
 
-                    def BASE_URL = sh(
+                    env.BASE_URL = sh(
                         script: """aws cloudformation describe-stacks \
                             --stack-name "${STACK_NAME}" \
                             --query "Stacks[0].Outputs[?OutputKey=='BaseUrlApi'].OutputValue" \
@@ -74,7 +74,7 @@ pipeline {
                     ).trim()
                 }
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                    sh "BASE_URL=${BASE_URL} pytest --junitxml=result-integration.xml -s test/integration/todoApiTest.py"
+                    sh "BASE_URL=${env.BASE_URL} pytest --junitxml=result-integration.xml -s test/integration/todoApiTest.py"
                 }
                 junit 'result-integration.xml'
             }
