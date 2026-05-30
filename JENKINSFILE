@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent {label 'aws1'}
         environment {
             AWS_REGION = 'us-east-1'
             SAM_TEMPLATE = 'template.yaml'
@@ -72,12 +72,11 @@ pipeline {
                 sh'''
                 git checkout master
                 git pull origin master
-                git merge develop
-                git checkout master -- Jenkinsfile   # Restaura el Jenkinsfile de master
-                git add Jenkinsfile
-                git commit -m "Merge develop into master, keep original Jenkinsfile"
-                git push origin 
+                git merge -X ours develop
                 '''
+                sshagent(['github']){
+                   sh 'git push origin master' 
+                }
             }
         }
     }
