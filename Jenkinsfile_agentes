@@ -61,6 +61,7 @@ pipeline {
         
         stage('Rest Test') {
             agent { label 'aws3' }
+            unstash 'codigo'
             steps {
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                     sh """BASE_URL=${BASE_URL} pytest --junitxml=result-integration.xml -s \
