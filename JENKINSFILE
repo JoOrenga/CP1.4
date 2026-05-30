@@ -72,10 +72,13 @@ pipeline {
 
                 sshagent(['github']){
                    sh'''
-                git checkout master
-                git pull origin master
-                git merge -X ours develop
-                git push origin master
+                   # Cambiar el remote a SSH
+                    git remote set-url origin git@github.com:JoOrenga/CP1.4.git
+                    
+                    git checkout master
+                    git pull origin master
+                    git merge -X ours develop
+                    git push origin master
                 '''
                 }
             }
