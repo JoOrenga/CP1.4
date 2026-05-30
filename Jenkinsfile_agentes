@@ -11,6 +11,12 @@ pipeline {
         stage('Get Code') {
             agent { label 'aws3' }
             steps {
+                sh'''
+                    whoami
+                    hostname
+                    echo ${WORKSPACE}
+                    echo "STAGE: ${STAGE_NAME} / AGENTE: ${NODE_NAME}"
+                '''
                 git branch: 'develop', url: 'https://github.com/JoOrenga/CP1.4.git'
                 stash name: 'codigo', includes: '**/*'
             }
@@ -21,6 +27,12 @@ pipeline {
                 stage('Static') {
                     agent { label 'aws1' }
                     steps {
+                        sh'''
+                            whoami
+                            hostname
+                            echo ${WORKSPACE}
+                            echo "STAGE: ${STAGE_NAME} / AGENTE: ${NODE_NAME}"
+                        '''
                         unstash 'codigo'
                         sh 'python3 -m flake8 --exit-zero --format=pylint --exclude=requirements.txt src 1>flake8.out'
                         recordIssues tools: [flake8(name: 'Flake8', pattern: 'flake8.out')],
@@ -30,6 +42,12 @@ pipeline {
                 stage('Security') {
                     agent { label 'aws1' }
                     steps {
+                        sh'''
+                            whoami
+                            hostname
+                            echo ${WORKSPACE}
+                            echo "STAGE: ${STAGE_NAME} / AGENTE: ${NODE_NAME}"
+                        '''
                         unstash 'codigo'
                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                             sh 'python3 -m bandit -r src --exclude=requirements.txt -f custom -o bandit.out --msg-template "{abspath}:{line}: [{test_id}] {msg}"'
@@ -46,6 +64,10 @@ pipeline {
             steps {
                 unstash 'codigo'
                 sh '''
+                    whoami
+                    hostname
+                    echo ${WORKSPACE}
+                    echo "STAGE: ${STAGE_NAME} / AGENTE: ${NODE_NAME}"
                     S3_BUCKET=$(grep -A5 "\\[staging.deploy.parameters\\]" ${SAM_CONFIG} \
                     | grep "s3_bucket" \
                     | cut -d'"' -f2)
@@ -87,6 +109,12 @@ pipeline {
         stage('Rest Test') {
             agent { label 'aws3' }
             steps {
+                sh'''
+                    whoami
+                    hostname
+                    echo ${WORKSPACE}
+                    echo "STAGE: ${STAGE_NAME} / AGENTE: ${NODE_NAME}"
+                '''
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                     sh """
                         BASE_URL=${env.BASE_URL} pytest --junitxml=result-integration.xml -s \
@@ -101,6 +129,10 @@ pipeline {
             agent { label 'aws3' }
             steps {
                  sh script: """
+                    whoami
+                    hostname
+                    echo ${WORKSPACE}
+                    echo "STAGE: ${STAGE_NAME} / AGENTE: ${NODE_NAME}"
                     # Cambiar el remote a SSH
                     git remote set-url origin git@github.com:JoOrenga/CP1.4.git
                     git checkout master
