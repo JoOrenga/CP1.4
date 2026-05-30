@@ -36,8 +36,8 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '''
-                    S3_BUCKET=$(grep -A5 "\\[staging.deploy.parameters\\]" ${SAM_CONFIG}
-                    | grep "s3_bucket"
+                    S3_BUCKET=$(grep -A5 "\\[staging.deploy.parameters\\]" ${SAM_CONFIG} \
+                    | grep "s3_bucket" \
                     | cut -d'"' -f2)
                     aws s3api head-bucket --bucket ${S3_BUCKET} 2>/dev/null || \
                     aws s3api create-bucket \
