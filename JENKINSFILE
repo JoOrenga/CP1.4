@@ -36,7 +36,9 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '''
-                    S3_BUCKET=$(grep -A5 "\\[staging.deploy.parameters\\]" ${SAM_CONFIG} | grep "s3_bucket" | cut -d'"' -f2)
+                    S3_BUCKET=$(grep -A5 "\\[staging.deploy.parameters\\]" ${SAM_CONFIG}
+                    | grep "s3_bucket"
+                    | cut -d'"' -f2)
                     aws s3api head-bucket --bucket ${S3_BUCKET} 2>/dev/null || \
                     aws s3api create-bucket \
                         --bucket ${S3_BUCKET} \
@@ -51,6 +53,17 @@ pipeline {
         stage('Rest Test') {
             steps {
                 script {
+                    
+                    STACK_NAME = sh(
+                            script: '''
+                                grep -A5 "\\[staging.deploy.parameters\\]" ${SAM_CONFIG}  \
+                                | grep "stack_name" \
+                                | cut -d'"' -f2
+                            ''',
+                            returnStdout: true
+                    ).trim()
+
+
                     BASE_URL = sh(
                         script: """aws cloudformation describe-stacks \
                             --stack-name todo-list-aws-staging \
