@@ -106,12 +106,8 @@ pipeline {
                     git checkout master
                     git pull origin master
                     git merge -X ours develop
-                """
-                sshagent(['github']){
-                   sh'''
                     git push origin master
-                '''
-                }
+                """
             }
         }
     }
