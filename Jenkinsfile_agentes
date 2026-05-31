@@ -18,6 +18,7 @@ pipeline {
                     echo "STAGE: ${STAGE_NAME} / AGENTE: ${NODE_NAME}"
                 '''
                 git branch: 'master', url: 'https://github.com/JoOrenga/CP1.4.git'
+                sh "wget -O samconfig.toml https://raw.githubusercontent.com/JoOrenga/todo-list-aws-config/production/samconfig.toml"
                 stash name: 'codigo', includes: '**/*'
             }
         }
@@ -63,8 +64,6 @@ pipeline {
                         """,
                         returnStdout: true
                     ).trim()
-        
-                    echo "BASE_URL capturada: ${env.BASE_URL}"
                 }
             }
         }
@@ -80,7 +79,7 @@ pipeline {
                     echo "STAGE: ${STAGE_NAME} / AGENTE: ${NODE_NAME}"
                 '''
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                    sh """BASE_URL=${BASE_URL} pytest --junitxml=result-integration.xml -s \
+                    sh """BASE_URL=${env.BASE_URL} pytest --junitxml=result-integration.xml -s \
                             -k 'test_api_listtodos or test_api_addtodo' \
                             test/integration/todoApiTest.py"""
                     
