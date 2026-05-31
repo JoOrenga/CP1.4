@@ -89,8 +89,8 @@ pipeline {
                     # Cambiar el remote a SSH
                     git remote set-url origin git@github.com:JoOrenga/CP1.4.git
                     git checkout master
-                    git pull origin master
-                    git merge -X ours master
+                    git config merge.ours.driver true
+                    git merge origin/develop --no-edit
                     git push origin master
                 """
             }
