@@ -9,6 +9,8 @@ pipeline {
         stage('Get Code') {
             steps {
                 git branch: 'master', url: 'https://github.com/JoOrenga/CP1.4.git'
+                sh "wget -O samconfig.toml https://raw.githubusercontent.com/JoOrenga/todo-list-aws-config/production/samconfig.toml"
+
             }
         }
         
