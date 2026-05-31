@@ -18,6 +18,7 @@ pipeline {
                     echo "STAGE: ${STAGE_NAME} / AGENTE: ${NODE_NAME}"
                 '''
                 git branch: 'develop', url: 'https://github.com/JoOrenga/CP1.4.git'
+                sh "wget -O samconfig.toml https://raw.githubusercontent.com/JoOrenga/todo-list-aws-config/staging/samconfig.toml"
                 stash name: 'codigo', includes: '**/*'
             }
         }
@@ -133,6 +134,7 @@ pipeline {
                     hostname
                     echo ${WORKSPACE}
                     echo "STAGE: ${STAGE_NAME} / AGENTE: ${NODE_NAME}"
+                    rm -f samconfig.toml
                     # Cambiar el remote a SSH
                     git remote set-url origin git@github.com:JoOrenga/CP1.4.git
                     git checkout master
