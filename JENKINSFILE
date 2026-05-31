@@ -41,7 +41,7 @@ pipeline {
                             returnStdout: true
                     ).trim()
                     
-                    def BASE_URL = sh(
+                    env.BASE_URL = sh(
                         script: """
                             aws cloudformation describe-stacks \
                             --stack-name "${STACK_NAME}" \
@@ -52,7 +52,7 @@ pipeline {
                     ).trim()
                 }
                 catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                    sh """BASE_URL=${BASE_URL} pytest --junitxml=result-integration.xml -s \
+                    sh """BASE_URL=${env.BASE_URL} pytest --junitxml=result-integration.xml -s \
                             -k 'test_api_listtodos or test_api_addtodo' \
                             test/integration/todoApiTest.py"""
                     
