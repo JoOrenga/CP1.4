@@ -139,7 +139,8 @@ pipeline {
                     git remote set-url origin git@github.com:JoOrenga/CP1.4.git
                     git checkout master
                     git pull origin master
-                    git merge -X ours develop
+                    git merge -X theirs develop
+                    git checkout HEAD~1 -- JENKINSFILE Jenkinsfile_agentes
                     git push origin master
                 """
             }
