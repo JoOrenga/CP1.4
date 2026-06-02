@@ -23,7 +23,7 @@ pipeline {
             }
         }
 
-        stage('Static & Security') {
+        stage('Static Test') {
             parallel {
                 stage('Static') {
                     agent { label 'aws1' }
